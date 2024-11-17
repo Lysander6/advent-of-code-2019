@@ -57,6 +57,24 @@ pub fn solve_part_1(p: &Problem) -> u64 {
     run_program(program)[0]
 }
 
+pub fn solve_part_2(p: &Problem) -> u64 {
+    for noun in 0..=99 {
+        for verb in 0..=99 {
+            let mut program = p.program.clone();
+            program[1] = noun;
+            program[2] = verb;
+
+            let result = run_program(program)[0];
+
+            if result == 19690720 {
+                return 100 * noun + verb;
+            }
+        }
+    }
+
+    unreachable!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
