@@ -1,18 +1,15 @@
-use core::str;
+use core::str::FromStr;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Problem {
     pub module_masses: Vec<u64>,
 }
 
-impl str::FromStr for Problem {
-    type Err = anyhow::Error;
+impl FromStr for Problem {
+    type Err = std::num::ParseIntError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let module_masses = s
-            .lines()
-            .map(u64::from_str)
-            .collect::<Result<Vec<_>, _>>()?;
+        let module_masses = s.lines().map(str::parse).collect::<Result<Vec<_>, _>>()?;
 
         Ok(Problem { module_masses })
     }
@@ -25,28 +22,18 @@ fn required_fuel(mass: u64) -> Option<u64> {
 pub fn solve_part_1(p: &Problem) -> u64 {
     p.module_masses
         .iter()
-        .cloned()
-        .map(|mass| required_fuel(mass).unwrap_or(0))
+        .filter_map(|&mass| required_fuel(mass))
         .sum()
 }
 
 fn required_fuel_with_more_fuel(mass: u64) -> u64 {
-    let mut fuel = required_fuel(mass).unwrap_or(0);
-    let mut total = fuel;
-
-    while let Some(more_fuel) = required_fuel(fuel) {
-        fuel = more_fuel;
-        total += fuel;
-    }
-
-    total
+    std::iter::successors(required_fuel(mass), |&fuel| required_fuel(fuel)).sum()
 }
 
 pub fn solve_part_2(p: &Problem) -> u64 {
     p.module_masses
         .iter()
-        .cloned()
-        .map(required_fuel_with_more_fuel)
+        .map(|&mass| required_fuel_with_more_fuel(mass))
         .sum()
 }
 
