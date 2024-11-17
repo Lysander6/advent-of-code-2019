@@ -18,12 +18,36 @@ impl str::FromStr for Problem {
     }
 }
 
-fn required_fuel(mass: u64) -> u64 {
-    mass / 3 - 2
+fn required_fuel(mass: u64) -> Option<u64> {
+    (mass / 3).checked_sub(2)
 }
 
 pub fn solve_part_1(p: &Problem) -> u64 {
-    p.module_masses.iter().cloned().map(required_fuel).sum()
+    p.module_masses
+        .iter()
+        .cloned()
+        .map(|mass| required_fuel(mass).unwrap_or(0))
+        .sum()
+}
+
+fn required_fuel_with_more_fuel(mass: u64) -> u64 {
+    let mut fuel = required_fuel(mass).unwrap_or(0);
+    let mut total = fuel;
+
+    while let Some(more_fuel) = required_fuel(fuel) {
+        fuel = more_fuel;
+        total += fuel;
+    }
+
+    total
+}
+
+pub fn solve_part_2(p: &Problem) -> u64 {
+    p.module_masses
+        .iter()
+        .cloned()
+        .map(required_fuel_with_more_fuel)
+        .sum()
 }
 
 #[cfg(test)]
@@ -50,10 +74,10 @@ mod tests {
 
     #[test]
     fn test_required_fuel() {
-        assert_eq!(required_fuel(12), 2);
-        assert_eq!(required_fuel(14), 2);
-        assert_eq!(required_fuel(1969), 654);
-        assert_eq!(required_fuel(100756), 33583);
+        assert_eq!(required_fuel(12), Some(2));
+        assert_eq!(required_fuel(14), Some(2));
+        assert_eq!(required_fuel(1969), Some(654));
+        assert_eq!(required_fuel(100756), Some(33583));
     }
 
     #[test]
@@ -61,5 +85,20 @@ mod tests {
         let problem = TEST_INPUT.parse().unwrap();
 
         assert_eq!(solve_part_1(&problem), 34241);
+    }
+
+    #[test]
+    fn test_required_fuel_with_more_fuel() {
+        assert_eq!(required_fuel_with_more_fuel(12), 2);
+        assert_eq!(required_fuel_with_more_fuel(14), 2);
+        assert_eq!(required_fuel_with_more_fuel(1969), 966);
+        assert_eq!(required_fuel_with_more_fuel(100756), 50346);
+    }
+
+    #[test]
+    fn test_solve_part_2() {
+        let problem = TEST_INPUT.parse().unwrap();
+
+        assert_eq!(solve_part_2(&problem), 2 + 2 + 966 + 50346);
     }
 }
