@@ -19,6 +19,7 @@ fn required_fuel(mass: u64) -> Option<u64> {
     (mass / 3).checked_sub(2)
 }
 
+#[must_use]
 pub fn solve_part_1(p: &Problem) -> u64 {
     p.module_masses
         .iter()
@@ -30,6 +31,7 @@ fn required_fuel_with_more_fuel(mass: u64) -> u64 {
     std::iter::successors(required_fuel(mass), |&fuel| required_fuel(fuel)).sum()
 }
 
+#[must_use]
 pub fn solve_part_2(p: &Problem) -> u64 {
     p.module_masses
         .iter()
@@ -54,7 +56,7 @@ mod tests {
         assert_eq!(
             result,
             Problem {
-                module_masses: vec![12, 14, 1969, 100756]
+                module_masses: vec![12, 14, 1969, 100_756]
             }
         );
     }
@@ -64,7 +66,7 @@ mod tests {
         assert_eq!(required_fuel(12), Some(2));
         assert_eq!(required_fuel(14), Some(2));
         assert_eq!(required_fuel(1969), Some(654));
-        assert_eq!(required_fuel(100756), Some(33583));
+        assert_eq!(required_fuel(100_756), Some(33_583));
     }
 
     #[test]
@@ -79,7 +81,7 @@ mod tests {
         assert_eq!(required_fuel_with_more_fuel(12), 2);
         assert_eq!(required_fuel_with_more_fuel(14), 2);
         assert_eq!(required_fuel_with_more_fuel(1969), 966);
-        assert_eq!(required_fuel_with_more_fuel(100756), 50346);
+        assert_eq!(required_fuel_with_more_fuel(100_756), 50_346);
     }
 
     #[test]

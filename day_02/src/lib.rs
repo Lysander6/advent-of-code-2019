@@ -32,18 +32,18 @@ fn run_program(mut program: Vec<u64>) -> Result<Vec<u64>, anyhow::Error> {
                 let [a_pos, b_pos, dest_pos] = match program.get(i + 1..=i + 3) {
                     Some(params) => params
                         .try_into()
-                        .with_context(|| format!("Couldn't cast {:?} into [usize; 3]", params))?,
+                        .with_context(|| format!("Couldn't cast {params:?} into [usize; 3]"))?,
                     None => bail!("Missing parameters for opcode {} at position {}", opcode, i),
                 };
 
                 let a = *program
-                    .get(a_pos as usize)
+                    .get(usize::try_from(a_pos)?)
                     .ok_or_else(|| anyhow!("Invalid position a_pos {}", a_pos))?;
                 let b = *program
-                    .get(b_pos as usize)
+                    .get(usize::try_from(b_pos)?)
                     .ok_or_else(|| anyhow!("Invalid position b_pos {}", b_pos))?;
                 let dest = program
-                    .get_mut(dest_pos as usize)
+                    .get_mut(usize::try_from(dest_pos)?)
                     .ok_or_else(|| anyhow!("Invalid position dest_pos {}", dest_pos))?;
 
                 *dest = if opcode == ADD { a + b } else { a * b };
@@ -60,7 +60,7 @@ fn run_program(mut program: Vec<u64>) -> Result<Vec<u64>, anyhow::Error> {
     Ok(program)
 }
 
-fn set_noun_and_verb(program: &mut Vec<u64>, noun: u64, verb: u64) -> Result<(), anyhow::Error> {
+fn set_noun_and_verb(program: &mut [u64], noun: u64, verb: u64) -> Result<(), anyhow::Error> {
     if let Some(n) = program.get_mut(1) {
         *n = noun;
     } else {
@@ -76,6 +76,8 @@ fn set_noun_and_verb(program: &mut Vec<u64>, noun: u64, verb: u64) -> Result<(),
     Ok(())
 }
 
+/// # Errors
+/// Returns an error on invalid program
 pub fn solve_part_1(p: &Problem) -> Result<u64, anyhow::Error> {
     let mut program = p.program.clone();
 
@@ -84,6 +86,8 @@ pub fn solve_part_1(p: &Problem) -> Result<u64, anyhow::Error> {
     run_program(program).map(|result| result[0])
 }
 
+/// # Errors
+/// Returns an error on invalid program
 pub fn solve_part_2(p: &Problem) -> Result<u64, anyhow::Error> {
     for noun in 0..=99 {
         for verb in 0..=99 {
@@ -93,7 +97,7 @@ pub fn solve_part_2(p: &Problem) -> Result<u64, anyhow::Error> {
 
             let result = run_program(program).map(|result| result[0])?;
 
-            if result == 19690720 {
+            if result == 19_690_720 {
                 return Ok(100 * noun + verb);
             }
         }
@@ -117,7 +121,7 @@ mod tests {
             Problem {
                 program: vec![1, 9, 10, 3, 2, 3, 11, 0, 99, 30, 40, 50]
             }
-        )
+        );
     }
 
     #[test]
@@ -125,7 +129,7 @@ mod tests {
         assert_eq!(
             run_program(vec![1, 0, 0, 0, 99]).unwrap(),
             vec![2, 0, 0, 0, 99]
-        )
+        );
     }
 
     #[test]
@@ -133,7 +137,7 @@ mod tests {
         assert_eq!(
             run_program(vec![2, 3, 0, 3, 99]).unwrap(),
             vec![2, 3, 0, 6, 99]
-        )
+        );
     }
 
     #[test]
@@ -141,7 +145,7 @@ mod tests {
         assert_eq!(
             run_program(vec![2, 4, 4, 5, 99, 0]).unwrap(),
             vec![2, 4, 4, 5, 99, 9801]
-        )
+        );
     }
 
     #[test]
@@ -149,7 +153,7 @@ mod tests {
         assert_eq!(
             run_program(vec![1, 1, 1, 4, 99, 5, 6, 0, 99]).unwrap(),
             vec![30, 1, 1, 4, 2, 5, 6, 0, 99]
-        )
+        );
     }
 
     #[test]
@@ -157,6 +161,6 @@ mod tests {
         assert_eq!(
             run_program(vec![1, 9, 10, 3, 2, 3, 11, 0, 99, 30, 40, 50]).unwrap(),
             vec![3500, 9, 10, 70, 2, 3, 11, 0, 99, 30, 40, 50]
-        )
+        );
     }
 }
