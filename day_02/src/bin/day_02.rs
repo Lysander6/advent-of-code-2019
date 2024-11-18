@@ -8,8 +8,8 @@ fn main() -> Result<(), anyhow::Error> {
     let input = fs::read_to_string(input_path)?;
     let p: Problem = input.parse()?;
 
-    println!("Part 1: {}", solve_part_1(&p));
-    println!("Part 2: {}", solve_part_2(&p));
+    println!("Part 1: {}", solve_part_1(&p)?);
+    println!("Part 2: {}", solve_part_2(&p)?);
 
     Ok(())
 }
