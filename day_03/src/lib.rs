@@ -87,12 +87,10 @@ impl Node {
             } else {
                 self.left = Some(Box::new(Node::new(new_interval)));
             }
+        } else if let Some(ref mut right_child) = self.right {
+            right_child.insert(new_interval);
         } else {
-            if let Some(ref mut right_child) = self.right {
-                right_child.insert(new_interval);
-            } else {
-                self.right = Some(Box::new(Node::new(new_interval)));
-            }
+            self.right = Some(Box::new(Node::new(new_interval)));
         }
     }
 
@@ -228,25 +226,27 @@ pub fn solve_part_1(p: &Problem) -> (i32, i32, i32) {
     let mut min_dist = 999_999_999;
 
     for (&y, xs) in first_wire_horizontal_segments {
-        for Interval { key: x, .. } in second_wire_vertical_intervals.search(y) {
-            if xs.iter().any(|&(x_min, x_max)| x_min <= *x && *x <= x_max) {
-                if !(*x == 0 && y == 0) && x.abs() + y.abs() < min_dist {
-                    min_x = *x;
-                    min_y = y;
-                    min_dist = x.abs() + y.abs();
-                }
+        for &Interval { key: x, .. } in second_wire_vertical_intervals.search(y) {
+            if xs.iter().any(|&(x_min, x_max)| x_min <= x && x <= x_max)
+                && !(x == 0 && y == 0)
+                && x.abs() + y.abs() < min_dist
+            {
+                min_x = x;
+                min_y = y;
+                min_dist = x.abs() + y.abs();
             }
         }
     }
 
     for (&x, ys) in first_wire_vertical_segments {
-        for Interval { key: y, .. } in second_wire_horizontal_intervals.search(x) {
-            if ys.iter().any(|&(y_min, y_max)| y_min <= *y && *y <= y_max) {
-                if !(x == 0 && *y == 0) && x.abs() + y.abs() < min_dist {
-                    min_x = x;
-                    min_y = *y;
-                    min_dist = x.abs() + y.abs();
-                }
+        for &Interval { key: y, .. } in second_wire_horizontal_intervals.search(x) {
+            if ys.iter().any(|&(y_min, y_max)| y_min <= y && y <= y_max)
+                && !(x == 0 && y == 0)
+                && x.abs() + y.abs() < min_dist
+            {
+                min_x = x;
+                min_y = y;
+                min_dist = x.abs() + y.abs();
             }
         }
     }
