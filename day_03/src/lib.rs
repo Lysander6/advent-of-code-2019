@@ -147,6 +147,18 @@ impl IntervalTree {
     }
 }
 
+impl From<&WireSegment> for Interval {
+    fn from(value: &WireSegment) -> Self {
+        let (_, a, (b1, b2)) = value;
+
+        Self {
+            low: *b1.min(b2),
+            high: *b1.max(b2),
+            key: *a,
+        }
+    }
+}
+
 fn parse_wire(wire_path: &str) -> Result<Vec<WireSegment>, anyhow::Error> {
     use Direction::{Down, Left, Right, Up};
 
@@ -195,6 +207,22 @@ fn find_intersections<'a>(
         .filter(move |Interval { key: b, .. }| b_min <= *b && *b <= b_max);
 }
 
+fn make_interval_trees(wire: &[WireSegment]) -> (IntervalTree, IntervalTree) {
+    use Direction::{Down, Left, Right, Up};
+
+    let mut horizontal_intervals = IntervalTree::new();
+    let mut vertical_intervals = IntervalTree::new();
+
+    for segment @ (dir, _, _) in wire {
+        match dir {
+            Up | Down => vertical_intervals.insert(segment.into()),
+            Right | Left => horizontal_intervals.insert(segment.into()),
+        }
+    }
+
+    (horizontal_intervals, vertical_intervals)
+}
+
 // order keys by abs value
 // can stop once one dimension distance is larger than closest found distance to this point (if any found)
 
@@ -207,24 +235,8 @@ pub fn solve_part_1(p: &Problem) -> (i32, i32, i32) {
         second_wire,
     } = p;
 
-    let mut second_wire_horizontal_intervals = IntervalTree::new();
-    let mut second_wire_vertical_intervals = IntervalTree::new();
-
-    for (dir, a, (b1, b2)) in second_wire {
-        let interval = Interval {
-            low: *b1.min(b2),
-            high: *b1.max(b2),
-            key: *a,
-        };
-
-        match dir {
-            Up | Down => second_wire_vertical_intervals.insert(interval),
-            Right | Left => second_wire_horizontal_intervals.insert(interval),
-        }
-    }
-
-    let second_wire_horizontal_intervals = second_wire_horizontal_intervals;
-    let second_wire_vertical_intervals = second_wire_vertical_intervals;
+    let (second_wire_horizontal_intervals, second_wire_vertical_intervals) =
+        make_interval_trees(second_wire);
 
     let mut min_x = 999_999;
     let mut min_y = 999_999;
