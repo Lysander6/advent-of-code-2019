@@ -181,6 +181,20 @@ fn parse_wire(wire_path: &str) -> Result<Vec<WireSegment>, anyhow::Error> {
     Ok(result)
 }
 
+fn find_intersections<'a>(
+    first_wire_segment: &WireSegment,
+    second_wire_intervals: &'a IntervalTree,
+) -> impl Iterator<Item = &'a Interval> {
+    let (_, a, (b1, b2)) = first_wire_segment;
+    let b_min = *b1.min(b2);
+    let b_max = *b1.max(b2);
+
+    return second_wire_intervals
+        .search(*a)
+        .into_iter()
+        .filter(move |Interval { key: b, .. }| b_min <= *b && *b <= b_max);
+}
+
 // order keys by abs value
 // can stop once one dimension distance is larger than closest found distance to this point (if any found)
 
@@ -216,18 +230,15 @@ pub fn solve_part_1(p: &Problem) -> (i32, i32, i32) {
     let mut min_y = 999_999;
     let mut min_dist = 999_999_999;
 
-    for (dir, a, (b1, b2)) in first_wire {
+    for first_wire_segment @ (dir, a, _) in first_wire {
         match dir {
             Up | Down => {
                 let x = *a;
-                let y_min = *b1.min(b2);
-                let y_max = *b1.max(b2);
 
-                for &Interval { key: y, .. } in second_wire_horizontal_intervals.search(x) {
-                    if (y_min <= y && y <= y_max)
-                        && !(x == 0 && y == 0)
-                        && x.abs() + y.abs() < min_dist
-                    {
+                for &Interval { key: y, .. } in
+                    find_intersections(first_wire_segment, &second_wire_horizontal_intervals)
+                {
+                    if !(x == 0 && y == 0) && x.abs() + y.abs() < min_dist {
                         min_x = x;
                         min_y = y;
                         min_dist = x.abs() + y.abs();
@@ -236,14 +247,11 @@ pub fn solve_part_1(p: &Problem) -> (i32, i32, i32) {
             }
             Right | Left => {
                 let y = *a;
-                let x_min = *b1.min(b2);
-                let x_max = *b1.max(b2);
 
-                for &Interval { key: x, .. } in second_wire_vertical_intervals.search(y) {
-                    if (x_min <= x && x <= x_max)
-                        && !(x == 0 && y == 0)
-                        && x.abs() + y.abs() < min_dist
-                    {
+                for &Interval { key: x, .. } in
+                    find_intersections(first_wire_segment, &second_wire_vertical_intervals)
+                {
+                    if !(x == 0 && y == 0) && x.abs() + y.abs() < min_dist {
                         min_x = x;
                         min_y = y;
                         min_dist = x.abs() + y.abs();
