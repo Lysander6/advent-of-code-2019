@@ -10,6 +10,8 @@ pub enum Direction {
     Left,
 }
 
+use Direction::{Down, Left, Right, Up};
+
 impl FromStr for Direction {
     type Err = anyhow::Error;
 
@@ -160,8 +162,6 @@ impl From<&WireSegment> for Interval {
 }
 
 fn parse_wire(wire_path: &str) -> Result<Vec<WireSegment>, anyhow::Error> {
-    use Direction::{Down, Left, Right, Up};
-
     let mut result = vec![];
     let (mut x, mut y) = (0, 0);
 
@@ -208,8 +208,6 @@ fn find_intersections<'a>(
 }
 
 fn make_interval_trees(wire: &[WireSegment]) -> (IntervalTree, IntervalTree) {
-    use Direction::{Down, Left, Right, Up};
-
     let mut horizontal_intervals = IntervalTree::new();
     let mut vertical_intervals = IntervalTree::new();
 
@@ -228,8 +226,6 @@ fn make_interval_trees(wire: &[WireSegment]) -> (IntervalTree, IntervalTree) {
 
 #[must_use]
 pub fn solve_part_1(p: &Problem) -> (i32, i32, i32) {
-    use Direction::{Down, Left, Right, Up};
-
     let Problem {
         first_wire,
         second_wire,
@@ -238,9 +234,9 @@ pub fn solve_part_1(p: &Problem) -> (i32, i32, i32) {
     let (second_wire_horizontal_intervals, second_wire_vertical_intervals) =
         make_interval_trees(second_wire);
 
-    let mut min_x = 999_999;
-    let mut min_y = 999_999;
-    let mut min_dist = 999_999_999;
+    let mut min_x = i32::MAX;
+    let mut min_y = i32::MAX;
+    let mut min_dist = i32::MAX;
 
     for first_wire_segment @ (dir, a, _) in first_wire {
         match dir {
@@ -278,8 +274,6 @@ pub fn solve_part_1(p: &Problem) -> (i32, i32, i32) {
 
 #[must_use]
 pub fn solve_part_2(p: &Problem) -> Option<i32> {
-    use Direction::{Down, Left, Right, Up};
-
     let Problem {
         first_wire,
         second_wire,
@@ -367,7 +361,6 @@ pub fn solve_part_2(p: &Problem) -> Option<i32> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use Direction::*;
 
     const TEST_INPUT: &str = "\
 R8,U5,L5,D3
