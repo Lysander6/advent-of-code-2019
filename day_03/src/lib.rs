@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use anyhow::{anyhow, bail};
 
@@ -276,6 +276,94 @@ pub fn solve_part_1(p: &Problem) -> (i32, i32, i32) {
     (min_x, min_y, min_dist)
 }
 
+#[must_use]
+pub fn solve_part_2(p: &Problem) -> Option<i32> {
+    use Direction::{Down, Left, Right, Up};
+
+    let Problem {
+        first_wire,
+        second_wire,
+    } = p;
+
+    let mut intersection_points: HashMap<(i32, i32), (i32, i32)> = HashMap::new();
+
+    let (second_wire_horizontal_intervals, second_wire_vertical_intervals) =
+        make_interval_trees(second_wire);
+    let mut first_wire_distance = 0;
+
+    for first_wire_segment @ (dir, a, (b1, b2)) in first_wire {
+        match dir {
+            Up | Down => {
+                let x = *a;
+                let intersections =
+                    find_intersections(first_wire_segment, &second_wire_horizontal_intervals);
+
+                for &Interval { key: y, .. } in intersections {
+                    if !(x == 0 && y == 0) {
+                        // TODO: maybe consider note form the puzzle "If a wire visits a position on the grid multiple times (...)"
+                        intersection_points.entry((x, y)).or_default().0 =
+                            first_wire_distance + (b1 - y).abs();
+                    }
+                }
+            }
+            Right | Left => {
+                let y = *a;
+                let intersections =
+                    find_intersections(first_wire_segment, &second_wire_vertical_intervals);
+
+                for &Interval { key: x, .. } in intersections {
+                    if !(x == 0 && y == 0) {
+                        intersection_points.entry((x, y)).or_default().0 =
+                            first_wire_distance + (b1 - x).abs();
+                    }
+                }
+            }
+        }
+
+        first_wire_distance += (b1 - b2).abs();
+    }
+
+    let (first_wire_horizontal_intervals, first_wire_vertical_intervals) =
+        make_interval_trees(first_wire);
+    let mut second_wire_distance = 0;
+
+    for second_wire_segment @ (dir, a, (b1, b2)) in second_wire {
+        match dir {
+            Up | Down => {
+                let x = *a;
+                let intersections =
+                    find_intersections(second_wire_segment, &first_wire_horizontal_intervals);
+
+                for &Interval { key: y, .. } in intersections {
+                    if !(x == 0 && y == 0) {
+                        intersection_points.entry((x, y)).or_default().1 = // by this point record with key `(x, y)` exists
+                            second_wire_distance + (b1 - y).abs();
+                    }
+                }
+            }
+            Right | Left => {
+                let y = *a;
+                let intersections =
+                    find_intersections(second_wire_segment, &first_wire_vertical_intervals);
+
+                for &Interval { key: x, .. } in intersections {
+                    if !(x == 0 && y == 0) {
+                        intersection_points.entry((x, y)).or_default().1 =
+                            second_wire_distance + (b1 - x).abs();
+                    }
+                }
+            }
+        }
+
+        second_wire_distance += (b1 - b2).abs();
+    }
+
+    intersection_points
+        .values()
+        .min_by(|a, b| (a.0 + a.1).cmp(&(b.0 + b.1)))
+        .map(|a| a.0 + a.1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -336,5 +424,34 @@ U98,R91,D20,R16,D67,R40,U7,R15,U6,R7"
             .unwrap();
 
         assert_eq!(solve_part_1(&p).2, 135);
+    }
+
+    #[test]
+    fn test_solve_part2_1() {
+        let p: Problem = TEST_INPUT.parse().unwrap();
+
+        assert_eq!(solve_part_2(&p), Some(30));
+    }
+
+    #[test]
+    fn test_solve_part2_2() {
+        let p: Problem = "\
+R75,D30,R83,U83,L12,D49,R71,U7,L72
+U62,R66,U55,R34,D71,R55,D58,R83"
+            .parse()
+            .unwrap();
+
+        assert_eq!(solve_part_2(&p), Some(610));
+    }
+
+    #[test]
+    fn test_solve_part2_3() {
+        let p: Problem = "\
+R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51
+U98,R91,D20,R16,D67,R40,U7,R15,U6,R7"
+            .parse()
+            .unwrap();
+
+        assert_eq!(solve_part_2(&p), Some(410));
     }
 }
