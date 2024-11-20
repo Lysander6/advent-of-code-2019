@@ -1,16 +1,36 @@
-use std::{
-    collections::{hash_map, HashMap},
-    str::FromStr,
-};
+use std::str::FromStr;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum Direction {
+    Up,
+    Down,
+    Right,
+    Left,
+}
+
+impl FromStr for Direction {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "U" => Ok(Self::Up),
+            "D" => Ok(Self::Down),
+            "R" => Ok(Self::Right),
+            "L" => Ok(Self::Left),
+            d => bail!("Unknown direction: {}", d),
+        }
+    }
+}
+
+// dir, x/y, (p_start, p_end)
+type WireSegment = (Direction, i32, (i32, i32));
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Problem {
-    first_wire_horizontal_segments: HashMap<i32, (i32, i32)>, // y -> (x_min, x_max)
-    first_wire_vertical_segments: HashMap<i32, (i32, i32)>,   // x -> (y_min, y_max)
-    second_wire_horizontal_segments: HashMap<i32, (i32, i32)>, // y -> (x_min, x_max)
-    second_wire_vertical_segments: HashMap<i32, (i32, i32)>,  // x -> (y_min, y_max)
+    first_wire: Vec<WireSegment>,
+    second_wire: Vec<WireSegment>,
 }
 
 //
@@ -24,32 +44,17 @@ impl FromStr for Problem {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut first_wire_horizontal_segments = HashMap::new();
-        let mut first_wire_vertical_segments = HashMap::new();
-        let mut second_wire_horizontal_segments = HashMap::new();
-        let mut second_wire_vertical_segments = HashMap::new();
-
         let (first_wire_path, second_wire_path) = s
             .trim()
             .split_once('\n')
             .ok_or_else(|| anyhow!("Couldn't split on newline"))?;
 
-        wire_path_to_segments(
-            first_wire_path,
-            &mut first_wire_horizontal_segments,
-            &mut first_wire_vertical_segments,
-        )?;
-        wire_path_to_segments(
-            second_wire_path,
-            &mut second_wire_horizontal_segments,
-            &mut second_wire_vertical_segments,
-        )?;
+        let first_wire = parse_wire(first_wire_path)?;
+        let second_wire = parse_wire(second_wire_path)?;
 
         Ok(Problem {
-            first_wire_horizontal_segments,
-            first_wire_vertical_segments,
-            second_wire_horizontal_segments,
-            second_wire_vertical_segments,
+            first_wire,
+            second_wire,
         })
     }
 }
@@ -142,58 +147,38 @@ impl IntervalTree {
     }
 }
 
-fn wire_path_to_segments(
-    wire_path: &str,
-    horizontal_segments: &mut HashMap<i32, (i32, i32)>,
-    vertical_segments: &mut HashMap<i32, (i32, i32)>,
-) -> Result<(), anyhow::Error> {
+fn parse_wire(wire_path: &str) -> Result<Vec<WireSegment>, anyhow::Error> {
+    use Direction::{Down, Left, Right, Up};
+
+    let mut result = vec![];
     let (mut x, mut y) = (0, 0);
 
     for instr in wire_path.split(',') {
         let (dir, len) = instr.split_at(1);
+        let dir: Direction = dir.parse()?;
         let len: i32 = len.parse()?;
 
         match dir {
-            "U" | "D" => {
+            Up | Down => {
                 let y_start = y;
-                let y_end = if dir == "U" { y + len } else { y - len };
-                let entry = if dir == "U" {
-                    (y_start, y_end)
-                } else {
-                    (y_end, y_start)
-                };
+                let y_end = if dir == Up { y + len } else { y - len };
 
-                match vertical_segments.entry(x) {
-                    hash_map::Entry::Occupied(_) => {
-                        unreachable!("assumed input property is not met")
-                    }
-                    hash_map::Entry::Vacant(v) => v.insert(entry),
-                };
+                result.push((dir, x, (y_start, y_end)));
 
                 y = y_end;
             }
-            "R" | "L" => {
+            Right | Left => {
                 let x_start = x;
-                let x_end = if dir == "R" { x + len } else { x - len };
-                let entry = if dir == "R" {
-                    (x_start, x_end)
-                } else {
-                    (x_end, x_start)
-                };
+                let x_end = if dir == Right { x + len } else { x - len };
 
-                match horizontal_segments.entry(y) {
-                    hash_map::Entry::Occupied(_) => {
-                        unreachable!("assumed input property is not met")
-                    }
-                    hash_map::Entry::Vacant(v) => v.insert(entry),
-                };
+                result.push((dir, y, (x_start, x_end)));
 
                 x = x_end;
             }
-            _ => unreachable!("Unknown dir {}", dir),
         }
     }
-    Ok(())
+
+    Ok(result)
 }
 
 // order keys by abs value
@@ -201,30 +186,27 @@ fn wire_path_to_segments(
 
 #[must_use]
 pub fn solve_part_1(p: &Problem) -> (i32, i32, i32) {
+    use Direction::{Down, Left, Right, Up};
+
     let Problem {
-        first_wire_horizontal_segments,
-        first_wire_vertical_segments,
-        second_wire_horizontal_segments,
-        second_wire_vertical_segments,
+        first_wire,
+        second_wire,
     } = p;
 
     let mut second_wire_horizontal_intervals = IntervalTree::new();
     let mut second_wire_vertical_intervals = IntervalTree::new();
 
-    for (y, (x_min, x_max)) in second_wire_horizontal_segments {
-        second_wire_horizontal_intervals.insert(Interval {
-            low: *x_min,
-            high: *x_max,
-            key: *y,
-        });
-    }
+    for (dir, a, (b1, b2)) in second_wire {
+        let interval = Interval {
+            low: *b1.min(b2),
+            high: *b1.max(b2),
+            key: *a,
+        };
 
-    for (x, (y_min, y_max)) in second_wire_vertical_segments {
-        second_wire_vertical_intervals.insert(Interval {
-            low: *y_min,
-            high: *y_max,
-            key: *x,
-        });
+        match dir {
+            Up | Down => second_wire_vertical_intervals.insert(interval),
+            Right | Left => second_wire_horizontal_intervals.insert(interval),
+        }
     }
 
     let second_wire_horizontal_intervals = second_wire_horizontal_intervals;
@@ -234,22 +216,39 @@ pub fn solve_part_1(p: &Problem) -> (i32, i32, i32) {
     let mut min_y = 999_999;
     let mut min_dist = 999_999_999;
 
-    for (&y, &(x_min, x_max)) in first_wire_horizontal_segments {
-        for &Interval { key: x, .. } in second_wire_vertical_intervals.search(y) {
-            if (x_min <= x && x <= x_max) && !(x == 0 && y == 0) && x.abs() + y.abs() < min_dist {
-                min_x = x;
-                min_y = y;
-                min_dist = x.abs() + y.abs();
-            }
-        }
-    }
+    for (dir, a, (b1, b2)) in first_wire {
+        match dir {
+            Up | Down => {
+                let x = *a;
+                let y_min = *b1.min(b2);
+                let y_max = *b1.max(b2);
 
-    for (&x, &(y_min, y_max)) in first_wire_vertical_segments {
-        for &Interval { key: y, .. } in second_wire_horizontal_intervals.search(x) {
-            if (y_min <= y && y <= y_max) && !(x == 0 && y == 0) && x.abs() + y.abs() < min_dist {
-                min_x = x;
-                min_y = y;
-                min_dist = x.abs() + y.abs();
+                for &Interval { key: y, .. } in second_wire_horizontal_intervals.search(x) {
+                    if (y_min <= y && y <= y_max)
+                        && !(x == 0 && y == 0)
+                        && x.abs() + y.abs() < min_dist
+                    {
+                        min_x = x;
+                        min_y = y;
+                        min_dist = x.abs() + y.abs();
+                    }
+                }
+            }
+            Right | Left => {
+                let y = *a;
+                let x_min = *b1.min(b2);
+                let x_max = *b1.max(b2);
+
+                for &Interval { key: x, .. } in second_wire_vertical_intervals.search(y) {
+                    if (x_min <= x && x <= x_max)
+                        && !(x == 0 && y == 0)
+                        && x.abs() + y.abs() < min_dist
+                    {
+                        min_x = x;
+                        min_y = y;
+                        min_dist = x.abs() + y.abs();
+                    }
+                }
             }
         }
     }
@@ -260,6 +259,7 @@ pub fn solve_part_1(p: &Problem) -> (i32, i32, i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use Direction::*;
 
     const TEST_INPUT: &str = "\
 R8,U5,L5,D3
@@ -273,10 +273,18 @@ U7,R6,D4,L4
         assert_eq!(
             p,
             Problem {
-                first_wire_horizontal_segments: HashMap::from([(0, (0, 8)), (5, (3, 8))]),
-                first_wire_vertical_segments: HashMap::from([(8, (0, 5)), (3, (2, 5))]),
-                second_wire_horizontal_segments: HashMap::from([(3, (2, 6)), (7, (0, 6))]),
-                second_wire_vertical_segments: HashMap::from([(0, (0, 7)), (6, (3, 7))]),
+                first_wire: vec![
+                    (Right, 0, (0, 8)),
+                    (Up, 8, (0, 5)),
+                    (Left, 5, (8, 3)),
+                    (Down, 3, (5, 2))
+                ],
+                second_wire: vec![
+                    (Up, 0, (0, 7)),
+                    (Right, 7, (0, 6)),
+                    (Down, 6, (7, 3)),
+                    (Left, 3, (6, 2))
+                ],
             }
         );
     }
