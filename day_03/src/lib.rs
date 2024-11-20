@@ -1,13 +1,16 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{
+    collections::{hash_map, HashMap},
+    str::FromStr,
+};
 
 use anyhow::anyhow;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Problem {
-    first_wire_horizontal_segments: HashMap<i32, Vec<(i32, i32)>>, // y -> [(x_min, x_max)]
-    first_wire_vertical_segments: HashMap<i32, Vec<(i32, i32)>>,   // x -> [(y_min, y_max)]
-    second_wire_horizontal_segments: HashMap<i32, Vec<(i32, i32)>>, // y -> [(x_min, x_max)]
-    second_wire_vertical_segments: HashMap<i32, Vec<(i32, i32)>>,  // x -> [(y_min, y_max)]
+    first_wire_horizontal_segments: HashMap<i32, (i32, i32)>, // y -> (x_min, x_max)
+    first_wire_vertical_segments: HashMap<i32, (i32, i32)>,   // x -> (y_min, y_max)
+    second_wire_horizontal_segments: HashMap<i32, (i32, i32)>, // y -> (x_min, x_max)
+    second_wire_vertical_segments: HashMap<i32, (i32, i32)>,  // x -> (y_min, y_max)
 }
 
 //
@@ -141,8 +144,8 @@ impl IntervalTree {
 
 fn wire_path_to_segments(
     wire_path: &str,
-    horizontal_segments: &mut HashMap<i32, Vec<(i32, i32)>>,
-    vertical_segments: &mut HashMap<i32, Vec<(i32, i32)>>,
+    horizontal_segments: &mut HashMap<i32, (i32, i32)>,
+    vertical_segments: &mut HashMap<i32, (i32, i32)>,
 ) -> Result<(), anyhow::Error> {
     let (mut x, mut y) = (0, 0);
 
@@ -160,7 +163,12 @@ fn wire_path_to_segments(
                     (y_end, y_start)
                 };
 
-                vertical_segments.entry(x).or_default().push(entry);
+                match vertical_segments.entry(x) {
+                    hash_map::Entry::Occupied(_) => {
+                        unreachable!("assumed input property is not met")
+                    }
+                    hash_map::Entry::Vacant(v) => v.insert(entry),
+                };
 
                 y = y_end;
             }
@@ -173,7 +181,12 @@ fn wire_path_to_segments(
                     (x_end, x_start)
                 };
 
-                horizontal_segments.entry(y).or_default().push(entry);
+                match horizontal_segments.entry(y) {
+                    hash_map::Entry::Occupied(_) => {
+                        unreachable!("assumed input property is not met")
+                    }
+                    hash_map::Entry::Vacant(v) => v.insert(entry),
+                };
 
                 x = x_end;
             }
@@ -198,24 +211,20 @@ pub fn solve_part_1(p: &Problem) -> (i32, i32, i32) {
     let mut second_wire_horizontal_intervals = IntervalTree::new();
     let mut second_wire_vertical_intervals = IntervalTree::new();
 
-    for (y, xs) in second_wire_horizontal_segments {
-        for (x_min, x_max) in xs {
-            second_wire_horizontal_intervals.insert(Interval {
-                low: *x_min,
-                high: *x_max,
-                key: *y,
-            });
-        }
+    for (y, (x_min, x_max)) in second_wire_horizontal_segments {
+        second_wire_horizontal_intervals.insert(Interval {
+            low: *x_min,
+            high: *x_max,
+            key: *y,
+        });
     }
 
-    for (x, ys) in second_wire_vertical_segments {
-        for (y_min, y_max) in ys {
-            second_wire_vertical_intervals.insert(Interval {
-                low: *y_min,
-                high: *y_max,
-                key: *x,
-            });
-        }
+    for (x, (y_min, y_max)) in second_wire_vertical_segments {
+        second_wire_vertical_intervals.insert(Interval {
+            low: *y_min,
+            high: *y_max,
+            key: *x,
+        });
     }
 
     let second_wire_horizontal_intervals = second_wire_horizontal_intervals;
@@ -225,12 +234,9 @@ pub fn solve_part_1(p: &Problem) -> (i32, i32, i32) {
     let mut min_y = 999_999;
     let mut min_dist = 999_999_999;
 
-    for (&y, xs) in first_wire_horizontal_segments {
+    for (&y, &(x_min, x_max)) in first_wire_horizontal_segments {
         for &Interval { key: x, .. } in second_wire_vertical_intervals.search(y) {
-            if xs.iter().any(|&(x_min, x_max)| x_min <= x && x <= x_max)
-                && !(x == 0 && y == 0)
-                && x.abs() + y.abs() < min_dist
-            {
+            if (x_min <= x && x <= x_max) && !(x == 0 && y == 0) && x.abs() + y.abs() < min_dist {
                 min_x = x;
                 min_y = y;
                 min_dist = x.abs() + y.abs();
@@ -238,12 +244,9 @@ pub fn solve_part_1(p: &Problem) -> (i32, i32, i32) {
         }
     }
 
-    for (&x, ys) in first_wire_vertical_segments {
+    for (&x, &(y_min, y_max)) in first_wire_vertical_segments {
         for &Interval { key: y, .. } in second_wire_horizontal_intervals.search(x) {
-            if ys.iter().any(|&(y_min, y_max)| y_min <= y && y <= y_max)
-                && !(x == 0 && y == 0)
-                && x.abs() + y.abs() < min_dist
-            {
+            if (y_min <= y && y <= y_max) && !(x == 0 && y == 0) && x.abs() + y.abs() < min_dist {
                 min_x = x;
                 min_y = y;
                 min_dist = x.abs() + y.abs();
@@ -270,19 +273,10 @@ U7,R6,D4,L4
         assert_eq!(
             p,
             Problem {
-                first_wire_horizontal_segments: HashMap::from([
-                    (0, vec![(0, 8)]),
-                    (5, vec![(3, 8)]),
-                ]),
-                first_wire_vertical_segments: HashMap::from([(8, vec![(0, 5)]), (3, vec![(2, 5)])]),
-                second_wire_horizontal_segments: HashMap::from([
-                    (3, vec![(2, 6)]),
-                    (7, vec![(0, 6)]),
-                ]),
-                second_wire_vertical_segments: HashMap::from([
-                    (0, vec![(0, 7)]),
-                    (6, vec![(3, 7)]),
-                ]),
+                first_wire_horizontal_segments: HashMap::from([(0, (0, 8)), (5, (3, 8))]),
+                first_wire_vertical_segments: HashMap::from([(8, (0, 5)), (3, (2, 5))]),
+                second_wire_horizontal_segments: HashMap::from([(3, (2, 6)), (7, (0, 6))]),
+                second_wire_vertical_segments: HashMap::from([(0, (0, 7)), (6, (3, 7))]),
             }
         );
     }
